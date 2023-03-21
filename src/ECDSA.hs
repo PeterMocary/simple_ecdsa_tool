@@ -1,13 +1,16 @@
 module ECDSA (
     Signature(..), KeyPair(..),
-    createKeyPair,
     pubKeyToStrSEC,
-    atemptToGenerateSignature,
+    generateKeyPair,
+    generateSignature,
     verifySignature
 ) where
 
 import Numeric (showHex)
+import System.Random
+
 import ElipticCurve
+
 
 data Signature = Signature {
     r :: Integer,
@@ -19,6 +22,7 @@ instance Show Signature where
                            "\nr: 0x" ++ showHex r "" ++
                            "\ns: 0x" ++ showHex s "\n}"
 
+
 data KeyPair = KeyPair {
     d :: Integer,
     q :: Point
@@ -29,35 +33,58 @@ instance Show KeyPair where
                          "\nd: 0x" ++ showHex d "" ++
                          "\nQ: \n" ++ show q ++ "\n}"
 
-
--- Creates key pair from given private key.
--- Calculates public key from the private key.
-createKeyPair :: ElipticCurve -> Integer -> KeyPair
-createKeyPair ec@(ElipticCurve p _ _ g _ _) privKey
-    | privKey < 0 || privKey > p -1 = error "[InternalError]: Private Key out of range"
-    | otherwise = KeyPair privKey pubKey
+-- Normalizes length of a give hex integer in string format
+-- to the length of given eliptic curve parameter p to
+-- preserve leading zeroes.
+_normalizeHexNumLength :: ElipticCurve -> String -> String
+_normalizeHexNumLength (ElipticCurve p _ _ _ _ _) inputHex
+    | pHexLen == inputHexLen = inputHex
+    | otherwise = replicate lengthDiff '0' ++ inputHex
     where
-        pubKey = multiplyPoint ec g privKey
+        pHex = showHex p ""
+        pHexLen = length pHex
+        inputHexLen = length inputHex
+        lengthDiff = pHexLen - inputHexLen
+
 
 -- Converts public key to string SEC representation.
 -- see https://secg.org/sec1-v2.pdf#subsubsection.2.3.3
-pubKeyToStrSEC:: ElipticCurve -> Point -> String
-pubKeyToStrSEC ec InfinityPoint = "0x00"
+pubKeyToStrSEC :: ElipticCurve -> Point -> String
+pubKeyToStrSEC _ InfinityPoint = "0x00"
 pubKeyToStrSEC ec q 
     | length output == 2*mlen = output
     | otherwise = replicate (2*mlen - length output) '0' ++ output
     where
-        xHexStr = showHex (x q) ""
-        yHexStr = showHex (y q) ""
+        xHexStr = _normalizeHexNumLength ec $ showHex (x q) ""
+        yHexStr = _normalizeHexNumLength ec $ showHex (y q) ""
         mlen = ceiling (logBase 2.0 (fromIntegral (p ec)) / 8)
         output = "0x04" ++ take (2*mlen) xHexStr ++ take (2*mlen) yHexStr
 
--- Implements signature generation.
+
+-- Generates a key pair
+-- Uses randomRIO to generate private key therefore returns IO KeyPair
+-- TODO change the hardcoded value to privKey
+generateKeyPair :: ElipticCurve -> IO KeyPair
+generateKeyPair ec@(ElipticCurve _ _ _ _ n _) = do
+    privKey <- randomRIO (1, n-1)
+    return $ _createKeyPair ec 0xc9dcda39c4d7ab9d854484dbed2963da9c0cf3c6e9333528b4422ef00dd0b28e
+
+
+-- Creates key pair from a given private key and calculates
+-- public key from the private key.
+_createKeyPair :: ElipticCurve -> Integer -> KeyPair
+_createKeyPair ec@(ElipticCurve p _ _ g _ _) privKey
+    | privKey < 0 || privKey > p -1 = error "[InternalError]: Private Key out of range"
+    | otherwise = KeyPair privKey pubKey
+    where pubKey = multiplyPoint ec g privKey
+
+
 -- Atempts to generate signature based on given random value (randomK). 
 -- Intended to be called multiple times with a different random value until the
--- signature is generated successfully.
-atemptToGenerateSignature :: ElipticCurve -> Integer -> Integer -> Integer -> Maybe Signature
-atemptToGenerateSignature ec@(ElipticCurve _ _ _ g n _) msgHash privKey randomK
+-- signature is generated successfully. Due to the uncertain nature of the generation process
+-- uses Maybe as the return type.
+_atemptToGenerateSignature :: ElipticCurve -> Integer -> Integer -> Integer -> Maybe Signature
+_atemptToGenerateSignature ec@(ElipticCurve _ _ _ g n _) msgHash privKey randomK
     | r == 0 = Nothing
     | otherwise = Just $ Signature r s
     where
@@ -65,17 +92,27 @@ atemptToGenerateSignature ec@(ElipticCurve _ _ _ g n _) msgHash privKey randomK
         r = x kG `mod` n
         s = (multInv randomK n * (msgHash + r * privKey)) `mod` n
 
+
+-- Implements signature generation. Generates random number using randomRIO,
+-- thus returns IO signature.
+generateSignature :: ElipticCurve -> Integer -> Integer -> IO Signature
+generateSignature ec@(ElipticCurve _ _ _ _ n _) msgHash privateKey = do
+    randK <- randomRIO (1, n-1)
+    case _atemptToGenerateSignature ec msgHash privateKey randK of
+        Nothing -> generateSignature ec msgHash privateKey
+        Just signature -> return signature
+
+
 -- Implements signature verification.
--- Doesn't check corectness of given eliptic curve and public key.
 verifySignature :: ElipticCurve -> Signature -> Point -> Integer -> Bool
 verifySignature _ _ InfinityPoint _ = False
 verifySignature ec@(ElipticCurve _ _ _ g n _)  (Signature r s) pubKey msgHash
     | r > 0 && r < n && s > 0 && s < n = r == x newPoint
     | otherwise = False
     where
-        w = multInv s n `mod` n
-        u1 = w*msgHash `mod` n
-        u2 = r*w `mod` n
+        w = multInv s n
+        u1 = (w*msgHash) `mod` n
+        u2 = (r*w) `mod` n
         newPoint1 = multiplyPoint ec g u1
         newPoint2 = multiplyPoint ec pubKey u2
         newPoint = addPoints ec newPoint1 newPoint2

@@ -1,5 +1,5 @@
 LOGIN=xmocar00
-COMPILER=ghc
+COMPILER=stack ghc --
 FLAGS=-Wall --make
 NAME=flp22-fun
 MAIN=Main.hs

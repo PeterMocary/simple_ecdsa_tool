@@ -1,55 +1,61 @@
 import System.IO (openFile, hGetContents')
 import System.Directory.Internal.Prelude (getArgs, IOMode (ReadMode))
+import Text.Parsec (parse)
+import Numeric (showHex)
 
-import ElipticCurve 
 import ECDSA
 import InputParsers
-import Text.Parsec (parse)
 
 
-myCurve = ElipticCurve {
-    p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
-    a = 0,
-    b = 7,
-    g = Point{
-        x=0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
-        y=0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
-    },
-    n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141,
-    h = 1
-}
-
--- Action definitions
-outputElipticCurve :: String -> IO ()
-outputElipticCurve "" = error "[Error]: No input provided!"
-outputElipticCurve input = 
-    case parse elipticCurveParser "" input of
-        Left err -> print err 
-        Right ans -> print ans
+-- Implements -i switch
+outputElipticCurve :: String -> FilePath -> IO ()
+outputElipticCurve "" _ = error "[Error]: No input provided!"
+outputElipticCurve input filePath =
+    case parse elipticCurveParser filePath input of
+        Left err -> error $ show err
+        Right elipticCurve -> print elipticCurve
 
 
-outputKeyPair :: String -> IO ()
-outputKeyPair "" = error "[Error]: No input provided!"
-outputKeyPair input = do
-        putStrLn input
-        putStrLn $ show $ KeyPair 0 $ Point 0 0 
+-- Implements -k switch
+outputKeyPair :: String -> FilePath -> IO ()
+outputKeyPair "" _ = error "[Error]: No input provided!"
+outputKeyPair input filePath =
+    case parse elipticCurveParser filePath input of
+        Left err -> error $ show err
+        Right elipticCurve -> do
+            (KeyPair privateKey publicKey) <- generateKeyPair elipticCurve
+            putStrLn $ "Key {\n" ++
+                       "d: 0x" ++ showHex privateKey "\n" ++
+                       "Q: " ++ pubKeyToStrSEC elipticCurve publicKey ++
+                       "\n}"
 
 
-outputSignature :: String -> IO ()
-outputSignature "" = error "[Error]: No input provided!"
-outputSignature input = do
-        putStrLn input
-        putStrLn $ show $ Signature 0 0
+-- Implements -s switch
+outputSignature :: String -> FilePath -> IO ()
+outputSignature "" _ = error "[Error]: No input provided!"
+outputSignature input filePath =
+    case parse signatureGenerationInputParser filePath input of
+        Left err -> error $ show err
+        Right (elipticCurve, KeyPair privateKey _, msgHash) -> do
+            (Signature r s) <- generateSignature elipticCurve msgHash privateKey
+            putStrLn $ "Signature {" ++
+                     "\nr: 0x" ++ showHex r "" ++
+                     "\ns: 0x" ++ showHex s "" ++
+                     "\n}"
 
 
-outputSignatureVerification :: String -> IO ()
-outputSignatureVerification "" = error "[Error]: No input provided!"
-outputSignatureVerification input = do
-        putStrLn input
-        putStrLn $ show $ True
+-- Implements -v switch
+outputSignatureVerification :: String -> FilePath -> IO ()
+outputSignatureVerification "" _ = error "[Error]: No input provided!"
+outputSignatureVerification input filePath =
+    case parse signatureVerificationInputParser filePath input of
+        Left err -> error $ show err
+        Right (elipticCurve, signature, publicKey, msgHash) -> do
+            print $ verifySignature elipticCurve signature publicKey msgHash
 
 
-actionMap :: [(String, String -> IO ())]
+-- Action map binds switch to its logic
+actionMap :: [(String, String -> FilePath -> IO ())]
 actionMap = [("-i", outputElipticCurve),
              ("-k", outputKeyPair),
              ("-s", outputSignature),
@@ -58,15 +64,17 @@ actionMap = [("-i", outputElipticCurve),
 
 main :: IO ()
 main = do
-    (switch:inputSrc) <- getArgs
+    (switch:(inputFilePath:_)) <- getArgs
     
-    let (Just action) = lookup switch actionMap
-        readInput
-            | null inputSrc = getContents
-            | otherwise = do
-                handle <- openFile (head inputSrc) ReadMode
-                hGetContents' handle
+    -- Decide whether to read from STDIN or from a file
+    let _readInput :: (FilePath, IO String)
+        _readInput
+            | null inputFilePath = ("STDIN", getContents)
+            | otherwise = (inputFilePath, readFile inputFilePath)
+    input <- snd _readInput
 
-    input <- readInput
-    action input
+    -- Lookup and execute switch logic
+    case lookup switch actionMap of
+        Nothing -> error "[Error]: Undefined switch!"
+        (Just action) -> action input $ fst _readInput
 
