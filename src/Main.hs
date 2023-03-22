@@ -1,10 +1,12 @@
-import System.IO (openFile, hGetContents')
-import System.Directory.Internal.Prelude (getArgs, IOMode (ReadMode))
+import System.Directory.Internal.Prelude (getArgs)
 import Text.Parsec (parse)
 import Numeric (showHex)
 
-import ECDSA
-import InputParsers
+import ECDSA (KeyPair(..), generateKeyPair, pubKeyToStrSEC,
+              Signature(..), generateSignature, verifySignature)
+import InputParsers (elipticCurveParser,
+                     signatureGenerationInputParser,
+                     signatureVerificationInputParser)
 
 
 -- Implements -i switch
@@ -13,7 +15,7 @@ outputElipticCurve "" _ = error "[Error]: No input provided!"
 outputElipticCurve input filePath =
     case parse elipticCurveParser filePath input of
         Left err -> error $ show err
-        Right elipticCurve -> print elipticCurve
+        Right elipticCurve -> putStrLn $ show elipticCurve
 
 
 -- Implements -k switch
@@ -54,7 +56,7 @@ outputSignatureVerification input filePath =
             print $ verifySignature elipticCurve signature publicKey msgHash
 
 
--- Action map binds switch to its logic
+-- Action map binds switches to their logic
 actionMap :: [(String, String -> FilePath -> IO ())]
 actionMap = [("-i", outputElipticCurve),
              ("-k", outputKeyPair),

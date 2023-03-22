@@ -1,67 +1,63 @@
+-- --------------------------------
+-- FLP - ECDSA project
+-- author: Peter Močáry (xmocar00)
+-- date: 22.03.2023
+-- --------------------------------
+
 module InputParsers (
     elipticCurveParser,
     signatureGenerationInputParser,
     signatureVerificationInputParser
 ) where
 
-import Numeric (readHex, readDec)
+import Numeric (readHex)
+import Text.Read (readMaybe)
 import Text.ParserCombinators.Parsec
 
-import ECDSA
-import ElipticCurve
+import ECDSA (KeyPair(..), Signature(..))
+import ElipticCurve (ElipticCurve(..), Point(..))
 
 
 _pointField :: String -> Parser Point
 _pointField fieldName = do
-    spaces
-    string fieldName
-    spaces
-    char ':'
-    spaces
-    string "Point"
-    spaces
-    char '{'
-    x <- _numField "x" _hexNum
-    y <- _numField "y" _hexNum
-    spaces
-    char '}'
+    _ <- spaces
+    _ <- string fieldName
+    _ <- spaces
+    _ <- char ':'
+    _ <- spaces
+    _ <- string "Point"
+    _ <- spaces
+    _ <- char '{'
+    x <- _numField "x"
+    y <- _numField "y"
+    _ <- spaces
+    _ <- char '}'
     return $ Point x y
 
+-- Implements parsing of a numeric field with given filed name.
+-- Can read both hexadecimal or decimal integers from the input.
+_numField :: String -> Parser Integer
+_numField fieldName = do
+    _ <- spaces
+    _ <- string fieldName
+    _ <- spaces
+    _ <- char ':'
+    _ <- spaces
+    digits <- manyTill anyChar newline
+    case readMaybe digits :: Maybe Integer of
+        Just d -> return d
+        Nothing -> unexpected "character on previous line. Expected hexadecimal or decimal integer"
 
-_numField :: (Num a) => String -> Parser a -> Parser a
-_numField fieldName contentsParser = do
-    spaces
-    string fieldName
-    spaces
-    char ':'
-    contentsParser
-
-
-_hexNum :: Parser Integer
-_hexNum = do
-    spaces
-    string "0x"
-    digits <- many1 hexDigit
-    let ((d,_):_) = readHex digits
-    return d
-
-
-_decNum :: Parser Integer
-_decNum = do
-    spaces
-    digits <- many1 digit
-    let ((d,_):_) = readDec digits
-    return d
-
-
+-- implements parsing of SEC format of a public Key
+-- see https://secg.org/sec1-v2.pdf#subsubsection.2.3.3
 _publicKeyField :: Parser Point
 _publicKeyField = do
-    spaces
-    char 'Q'
-    spaces
-    char ':'
-    spaces
-    string "0x04"
+    _ <- spaces
+    _ <- char 'Q'
+    _ <- spaces
+    _ <- char ':'
+    _ <- spaces
+    _ <- string "0x04"
     digits <- many1 hexDigit
     let ((firstHalf,_):_) = readHex $ take (length digits `div` 2) digits
         ((secondHalf,_):_) = readHex $ drop (length digits `div` 2) digits
@@ -70,61 +66,61 @@ _publicKeyField = do
 
 _signatureParser :: Parser Signature
 _signatureParser = do
-    spaces
-    string "Signature"
-    spaces
-    char '{'
-    r <- _numField "r" _hexNum
-    s <- _numField "s" _hexNum
-    spaces
-    char '}'
+    _ <- spaces
+    _ <-  string "Signature"
+    _ <-  spaces
+    _ <-  char '{'
+    r <- _numField "r"
+    s <- _numField "s"
+    _ <- spaces
+    _ <- char '}'
     return $ Signature r s
 
 
 _publicKeyParser :: Parser Point
 _publicKeyParser = do
-    spaces
-    string "PublicKey"
-    spaces
-    char '{'
+    _ <- spaces
+    _ <- string "PublicKey"
+    _ <- spaces
+    _ <- char '{'
     publicKey <- _publicKeyField
-    spaces
-    char '}'
+    _ <- spaces
+    _ <- char '}'
     return publicKey
 
 
 _keyPairParser :: Parser KeyPair
 _keyPairParser = do
-    spaces
-    string "Key"
-    spaces
-    char '{'
-    privateKey <- _numField "d" _hexNum
+    _ <- spaces
+    _ <- string "Key"
+    _ <- spaces
+    _ <- char '{'
+    privateKey <- _numField "d"
     publicKey <- _publicKeyField
-    spaces
-    char '}'
+    _ <- spaces
+    _ <- char '}'
     return $ KeyPair privateKey publicKey
 
 
 _messageHashParser :: Parser Integer
-_messageHashParser = _numField "Hash" _hexNum
+_messageHashParser = _numField "Hash"
 
 
 -- implements parser for the input of -i and -k switches
 elipticCurveParser :: Parser ElipticCurve
 elipticCurveParser = do
-    spaces
-    string "Curve"
-    spaces
-    char '{'
-    p <- _numField "p" _hexNum
-    a <- _numField "a" _decNum
-    b <- _numField "b" _decNum
+    _ <- spaces
+    _ <- string "Curve"
+    _ <- spaces
+    _ <- char '{'
+    p <- _numField "p"
+    a <- _numField "a"
+    b <- _numField "b"
     g <- _pointField "g"
-    n <- _numField "n" _hexNum
-    h <- _numField "h" _decNum
-    spaces
-    char '}'
+    n <- _numField "n"
+    h <- _numField "h"
+    _ <- spaces
+    _ <- char '}'
     return $ ElipticCurve p a b g n h
 
 

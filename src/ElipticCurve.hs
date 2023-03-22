@@ -1,7 +1,11 @@
+-- --------------------------------
+-- FLP - ECDSA project
+-- author: Peter Močáry (xmocar00)
+-- date: 22.03.2023
+-- --------------------------------
+
 module ElipticCurve (
     ElipticCurve(..), Point(..),
-    isInversePointTo,
-    getInversePointTo,
     addPoints, multiplyPoint,
     multInv
 ) where
@@ -19,7 +23,7 @@ data ElipticCurve = ElipticCurve {
 }
 
 instance Show ElipticCurve where 
-    show (ElipticCurve p a b g n h) = "Curve: {" ++
+    show (ElipticCurve p a b g n h) = "Curve {" ++
                                       "\np: 0x" ++ showHex p "" ++
                                       "\na: " ++ show a ++ 
                                       "\nb: " ++ show b ++ 
@@ -58,18 +62,18 @@ _powMod x n m
         x' = _powMod x (n `div` 2) m
 
 
--- Checks if the points are inverse to each other
-isInversePointTo :: ElipticCurve -> Point -> Point -> Bool
-isInversePointTo _ InfinityPoint InfinityPoint = True
-isInversePointTo _ _ InfinityPoint = False
-isInversePointTo _ InfinityPoint _ = False
-isInversePointTo (ElipticCurve p _ _ _ _ _) (Point _ yA) (Point _ yB) = yA == -yB `mod` p
+-- Checks if given points are inverse to each other.
+_isInversePointTo :: ElipticCurve -> Point -> Point -> Bool
+_isInversePointTo _ InfinityPoint InfinityPoint = True
+_isInversePointTo _ _ InfinityPoint = False
+_isInversePointTo _ InfinityPoint _ = False
+_isInversePointTo (ElipticCurve p _ _ _ _ _) (Point _ yA) (Point _ yB) = yA == -yB `mod` p
 
 
 -- Inverts the specified eliptic curve point
-getInversePointTo :: ElipticCurve -> Point -> Point
-getInversePointTo _ InfinityPoint = InfinityPoint
-getInversePointTo (ElipticCurve p _ _ _ _ _) (Point x y) = Point x $ -y `mod` p
+_getInversePointTo :: ElipticCurve -> Point -> Point
+_getInversePointTo _ InfinityPoint = InfinityPoint
+_getInversePointTo (ElipticCurve p _ _ _ _ _) (Point x y) = Point x $ -y `mod` p
 
 
 -- Implements addition of two eliptic curve points
@@ -77,7 +81,7 @@ addPoints :: ElipticCurve -> Point -> Point -> Point                        -- P
 addPoints _ InfinityPoint point = point                                    -- P==O                   => O + Q = Q
 addPoints _ point InfinityPoint = point                                    -- Q==O                   => P + O = P
 addPoints ec@(ElipticCurve p a _ _ _ _) pointA@(Point xA yA) pointB@(Point xB yB)
-    | isInversePointTo ec pointA pointB = InfinityPoint                     -- Q==-P                  => P + (-P) = O
+    | _isInversePointTo ec pointA pointB = InfinityPoint                     -- Q==-P                  => P + (-P) = O
     | pointA == pointB && yA == 0 = InfinityPoint                           -- P==Q and y=0           => P + P = O
     | pointA == pointB = Point xR_eq yR_eq                                  -- P==Q                   => P + P = R
     | otherwise = Point xR yR                                               -- P /= Q && -P /= Q      => P + Q = R
@@ -99,4 +103,3 @@ multiplyPoint ec point constant
     | even constant = addPoints ec point' point'
     | otherwise = addPoints ec point $ addPoints ec point' point'
     where point' = multiplyPoint ec point $ constant `div` 2
-

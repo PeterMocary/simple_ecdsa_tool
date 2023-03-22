@@ -1,3 +1,9 @@
+-- --------------------------------
+-- FLP - ECDSA project
+-- author: Peter Močáry (xmocar00)
+-- date: 22.03.2023
+-- --------------------------------
+
 module ECDSA (
     Signature(..), KeyPair(..),
     pubKeyToStrSEC,
@@ -9,7 +15,8 @@ module ECDSA (
 import Numeric (showHex)
 import System.Random
 
-import ElipticCurve
+import ElipticCurve (ElipticCurve(..), Point(..),
+                     addPoints, multiplyPoint, multInv)
 
 
 data Signature = Signature {
@@ -61,13 +68,12 @@ pubKeyToStrSEC ec q
         output = "0x04" ++ take (2*mlen) xHexStr ++ take (2*mlen) yHexStr
 
 
--- Generates a key pair
--- Uses randomRIO to generate private key therefore returns IO KeyPair
--- TODO change the hardcoded value to privKey
+-- Generates a key pair.
+-- Uses randomRIO to generate private key.
 generateKeyPair :: ElipticCurve -> IO KeyPair
 generateKeyPair ec@(ElipticCurve _ _ _ _ n _) = do
     privKey <- randomRIO (1, n-1)
-    return $ _createKeyPair ec 0xc9dcda39c4d7ab9d854484dbed2963da9c0cf3c6e9333528b4422ef00dd0b28e
+    return $ _createKeyPair ec privKey
 
 
 -- Creates key pair from a given private key and calculates
@@ -93,8 +99,7 @@ _atemptToGenerateSignature ec@(ElipticCurve _ _ _ g n _) msgHash privKey randomK
         s = (multInv randomK n * (msgHash + r * privKey)) `mod` n
 
 
--- Implements signature generation. Generates random number using randomRIO,
--- thus returns IO signature.
+-- Implements signature generation. Generates random number in the process.
 generateSignature :: ElipticCurve -> Integer -> Integer -> IO Signature
 generateSignature ec@(ElipticCurve _ _ _ _ n _) msgHash privateKey = do
     randK <- randomRIO (1, n-1)
