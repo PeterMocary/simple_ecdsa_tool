@@ -1,0 +1,19 @@
+Curve {
+p: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+a: 0
+b: 7
+g: Point {
+   x: 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+   y: 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
+}
+n: 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+h: 1
+}
+Signature {
+r: 0xfc8baaa0be0faef702f66dfd04cd1c1ad153e4b7222b0ee349f99d490f6705b7
+s: 0xbddb769774f9be83bbac5cac0367ee340a9916ad744ea29edb9260409e89772b
+}
+PublicKey {
+Q: 0x04c7ad1c8d2957f3a03345060f51d8ffbbc15240d280e1f94051e20af80a6d5e7b2798287622cf63f02e00da2614cc7f18cbe6e6b444ad1b91745de950f45bffde
+}
+Hash: 0x94996fead5b722c3bd07360c459927976e804f869626f4897def03fa56b009e3
