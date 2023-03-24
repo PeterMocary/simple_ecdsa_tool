@@ -1,11 +1,11 @@
 LOGIN=xmocar00
-COMPILER=stack ghc --
+COMPILER=ghc
 FLAGS=-Wall --make
 NAME=flp22-fun
 MAIN=Main.hs
 
 build:
-	cd ./src; $(COMPILER) $(FLAGS) ./$(MAIN) -o $(NAME)
+	cd ./src; $(COMPILER) $(FLAGS) ./*.hs -o $(NAME)
 	mv ./src/$(NAME) .
 
 clean:
@@ -13,4 +13,4 @@ clean:
 	rm ./$(NAME)
 
 zip:
-	zip -r $(NAME)-$(LOGIN).zip .
+	zip -r flp-fun-$(LOGIN).zip ./src Makefile

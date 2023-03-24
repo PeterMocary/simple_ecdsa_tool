@@ -28,11 +28,12 @@ _pointField fieldName = do
     _ <- string "Point"
     _ <- spaces
     _ <- char '{'
-    x <- _numField "x"
-    y <- _numField "y"
+    xField <- _numField "x"
+    yField <- _numField "y"
     _ <- spaces
     _ <- char '}'
-    return $ Point x y
+    return $ Point xField yField
+
 
 -- Implements parsing of a numeric field with given filed name.
 -- Can read both hexadecimal or decimal integers from the input.
@@ -45,8 +46,9 @@ _numField fieldName = do
     _ <- spaces
     digits <- manyTill anyChar newline
     case readMaybe digits :: Maybe Integer of
-        Just d -> return d
+        Just num -> return num
         Nothing -> unexpected "character on previous line. Expected hexadecimal or decimal integer"
+
 
 -- implements parsing of SEC format of a public Key
 -- see https://secg.org/sec1-v2.pdf#subsubsection.2.3.3
@@ -67,14 +69,14 @@ _publicKeyField = do
 _signatureParser :: Parser Signature
 _signatureParser = do
     _ <- spaces
-    _ <-  string "Signature"
-    _ <-  spaces
-    _ <-  char '{'
-    r <- _numField "r"
-    s <- _numField "s"
+    _ <- string "Signature"
+    _ <- spaces
+    _ <- char '{'
+    rField <- _numField "r"
+    sField <- _numField "s"
     _ <- spaces
     _ <- char '}'
-    return $ Signature r s
+    return $ Signature rField sField
 
 
 _publicKeyParser :: Parser Point
@@ -113,15 +115,15 @@ elipticCurveParser = do
     _ <- string "Curve"
     _ <- spaces
     _ <- char '{'
-    p <- _numField "p"
-    a <- _numField "a"
-    b <- _numField "b"
-    g <- _pointField "g"
-    n <- _numField "n"
-    h <- _numField "h"
+    pField <- _numField "p"
+    aField <- _numField "a"
+    bField <- _numField "b"
+    gField <- _pointField "g"
+    nField <- _numField "n"
+    hField <- _numField "h"
     _ <- spaces
     _ <- char '}'
-    return $ ElipticCurve p a b g n h
+    return $ ElipticCurve pField aField bField gField nField hField
 
 
 -- Implements parser for the input of -s switch

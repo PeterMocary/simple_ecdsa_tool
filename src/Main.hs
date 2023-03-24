@@ -1,4 +1,4 @@
-import System.Directory.Internal.Prelude (getArgs)
+import System.Environment (getArgs)
 import Text.Parsec (parse)
 import Numeric (showHex)
 
@@ -39,10 +39,10 @@ outputSignature input filePath =
     case parse signatureGenerationInputParser filePath input of
         Left err -> error $ show err
         Right (elipticCurve, KeyPair privateKey _, msgHash) -> do
-            (Signature r s) <- generateSignature elipticCurve msgHash privateKey
+            sig <- generateSignature elipticCurve msgHash privateKey
             putStrLn $ "Signature {" ++
-                     "\nr: 0x" ++ showHex r "" ++
-                     "\ns: 0x" ++ showHex s "" ++
+                     "\nr: 0x" ++ showHex (r sig) "" ++
+                     "\ns: 0x" ++ showHex (s sig) "" ++
                      "\n}"
 
 
@@ -66,13 +66,13 @@ actionMap = [("-i", outputElipticCurve),
 
 main :: IO ()
 main = do
-    (switch:(inputFilePath:_)) <- getArgs
-    
+    (switch:inputArgs) <- getArgs
+
     -- Decide whether to read from STDIN or from a file
     let _readInput :: (FilePath, IO String)
         _readInput
-            | null inputFilePath = ("STDIN", getContents)
-            | otherwise = (inputFilePath, readFile inputFilePath)
+            | null inputArgs = ("STDIN", getContents)
+            | otherwise = (head inputArgs, readFile $ head inputArgs)
     input <- snd _readInput
 
     -- Lookup and execute switch logic
